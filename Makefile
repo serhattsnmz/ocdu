@@ -18,25 +18,27 @@ DIST := dist
 endif
 
 .DEFAULT_GOAL := help
-.PHONY: help sync run tui test test-cov lint publish-private publish-public package package-dir install install-dev clean
+.PHONY: help sync run tui test test-cov lint push-private push-public package package-dir venv-install venv-install-dev tool-install tool-uninstall clean
 
 help:
 > @$(info Usage: make [target])
 > @$(info )
 > @$(info Targets:)
-> @$(info   sync         Install or refresh the virtual environment)
-> @$(info   run          Launch the interactive TUI)
-> @$(info   tui          Alias for run)
-> @$(info   test         Run the test suite with pytest)
-> @$(info   test-cov     Run tests with coverage)
-> @$(info   lint         Lint with ruff)
-> @$(info   publish-private  Push master to the private remote (origin))
-> @$(info   publish-public   Build the filtered publish branch and push it to github)
-> @$(info   package      Build a single-file executable at dist/ocdu.exe)
-> @$(info   package-dir  Build an onedir executable at dist/ocdu/ocdu.exe)
-> @$(info   install      Install ocdu as a library into the active environment)
-> @$(info   install-dev  Install ocdu editable into the active environment)
-> @$(info   clean        Remove the build and dist directories)
+> @$(info   sync             Install or refresh the virtual environment)
+> @$(info   run              Launch the interactive TUI)
+> @$(info   tui              Alias for run)
+> @$(info   test             Run the test suite with pytest)
+> @$(info   test-cov         Run tests with coverage)
+> @$(info   lint             Lint with ruff)
+> @$(info   push-private     Push master to the private remote (origin))
+> @$(info   push-public      Build the filtered publish branch and push it to github)
+> @$(info   venv-install     Install ocdu into the project virtualenv (.venv))
+> @$(info   venv-install-dev Install ocdu editable into the project virtualenv (.venv))
+> @$(info   tool-install     Install ocdu as a global uv tool (on PATH; --force refreshes it))
+> @$(info   tool-uninstall   Remove the global uv tool)
+> @$(info   package          Build a single-file executable at dist/ocdu.exe)
+> @$(info   package-dir      Build an onedir executable at dist/ocdu/ocdu.exe)
+> @$(info   clean            Remove the build and dist directories)
 > @$(info )
 > @$(info Build output directory (DIST_DIR): $(DIST))
 
@@ -57,10 +59,10 @@ test-cov:
 lint:
 > uv run ruff check .
 
-publish-private:
+push-private:
 > $(PY) scripts/publish.py --target private
 
-publish-public:
+push-public:
 > $(PY) scripts/publish.py --target public
 
 package:
@@ -69,11 +71,17 @@ package:
 package-dir:
 > uv run pyinstaller --noconfirm --onedir --name $(NAME) --paths $(SRC) --collect-all textual --distpath "$(DIST)" --workpath build --specpath build $(ENTRY)
 
-install:
+venv-install:
 > uv pip install .
 
-install-dev:
+venv-install-dev:
 > uv pip install -e .
+
+tool-install:
+> uv tool install --force .
+
+tool-uninstall:
+> uv tool uninstall $(NAME)
 
 clean:
 > $(PY) -c "import shutil; [shutil.rmtree(p, ignore_errors=True) for p in ('build', 'dist')]; print('cleaned build/ and dist/')"

@@ -135,9 +135,8 @@ ocdu/
 ├── ocdu-ui.example.json     # example config file
 ├── README.md
 ├── ARCHITECTURE.md
-├── Makefile                 # dev/build helpers (run, test, package, install)
+├── Makefile                 # dev/build helpers (run, test, package, installs)
 ├── pytest.ini               # pytest configuration (testpaths, pythonpath)
-├── publish.ignore           # paths excluded from the public `publish` branch
 ├── tests/                   # pytest suite (synthetic DB fixtures + TUI smoke)
 ├── packaging/               # PyInstaller launcher
 ├── scripts/                 # publish.py (private/public publishing helpers)
