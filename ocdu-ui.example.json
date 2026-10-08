@@ -1,0 +1,17 @@
+{
+  "OPENCODE_DATA_DIR": "~/.local/share/opencode",
+  "OPENCODE_STATE_DIR": "~/.local/state/opencode",
+  "OPENCODE_CACHE_DIR": "~/.cache/opencode",
+  "OPENCODE_CONFIG_DIR": "~/.config/opencode",
+  "OPENCODE_DB_FILE": "opencode.db",
+  "BACKUP_DIR": "${OPENCODE_DATA_DIR}/backups",
+  "BACKUP_KEEP": 3,
+  "EXPORT_DIR": "${OPENCODE_DATA_DIR}/exports",
+  "SCREENSHOT_DIR": "${OPENCODE_DATA_DIR}/screenshots",
+  "OPENCODE_BIN": "opencode",
+  "OPENCODE_CLI_TIMEOUT": 120,
+  "LOG_RETENTION_DAYS": 30,
+  "TUI_REFRESH_SECONDS": 0,
+  "THEME": "textual-dark",
+  "DIST_DIR": "dist"
+}
