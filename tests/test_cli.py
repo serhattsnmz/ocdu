@@ -214,6 +214,17 @@ class TestOtherMaintenanceCommands:
         assert cli._cmd_backup(NS()) == 0
         assert "Backup created" in capsys.readouterr().out
 
+    def test_backup_reports_rotation(self, cli_env, capsys, monkeypatch):
+        cli_env()
+        result = BackupResult(
+            path=Path("/b.zip"), db_bytes=1, total_bytes=2, extra_files=0, removed_old=[Path("/old.zip")]
+        )
+        monkeypatch.setattr(cli, "create_backup", lambda *_a, **_k: result)
+        monkeypatch.setattr(cli, "list_backups", lambda *_a: [Path("/b.zip")])
+        monkeypatch.setattr(cli, "backup_dir_size", lambda *_a: 2)
+        assert cli._cmd_backup(NS()) == 0
+        assert "rotated out: 1 old archive(s)" in capsys.readouterr().out
+
     def test_check(self, cli_env, capsys, monkeypatch):
         cli_env()
         monkeypatch.setattr(cli, "integrity_check", lambda *_a: "ok")
@@ -236,10 +247,52 @@ class TestOtherMaintenanceCommands:
         assert cli._cmd_clean_logs(NS(days=30, yes=False)) == 0
         assert "Log cleanup" in capsys.readouterr().out
 
+    def test_clean_logs_confirmed_deletes(self, make_db, config_factory, apply_config, capsys):
+        db_path = make_db(_rows())
+        cfg = config_factory(OPENCODE_DATA_DIR=str(db_path.parent), OPENCODE_DB_FILE=db_path.name)
+        apply_config(cfg)
+        log_dir = cfg.data_dir / "log"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        old = log_dir / "old.log"
+        old.write_bytes(b"x" * 5)
+        assert cli._cmd_clean_logs(NS(days=0, yes=True)) == 0
+        assert "Deleted 1 file(s)" in capsys.readouterr().out
+        assert not old.exists()
+
     def test_stats(self, cli_env, capsys):
         cli_env()
         assert cli._cmd_stats(NS()) == 0
         assert "Token & cost statistics" in capsys.readouterr().out
+
+class TestListCommandLimits:
+
+    def _two_root_sessions(self, make_db, config_factory, apply_config):
+        rows = {
+            "project": [ProjectFactory(id="prj0")],
+            "session": [
+                SessionFactory(id="ses1", project_id="prj0", title="A", directory="/d"),
+                SessionFactory(id="ses2", project_id="prj0", title="B", directory="/d"),
+            ],
+            "message": [
+                MessageFactory(id="m1", session_id="ses1", data="aa"),
+                MessageFactory(id="m2", session_id="ses2", data="bbbb"),
+            ],
+        }
+        db_path = make_db(rows)
+        cfg = config_factory(OPENCODE_DATA_DIR=str(db_path.parent), OPENCODE_DB_FILE=db_path.name)
+        apply_config(cfg)
+
+    def test_sessions_limit_reports_remainder(self, make_db, config_factory, apply_config, capsys):
+        self._two_root_sessions(make_db, config_factory, apply_config)
+        assert cli._cmd_sessions(NS(limit=1, flat=False)) == 0
+        out = capsys.readouterr().out
+        assert "showing top 1 of 2" in out
+
+    def test_sessions_no_limit_lists_all(self, make_db, config_factory, apply_config, capsys):
+        self._two_root_sessions(make_db, config_factory, apply_config)
+        assert cli._cmd_sessions(NS(limit=0, flat=False)) == 0
+        assert "2 sessions, total" in capsys.readouterr().out
+
 
 class TestSessionCommands:
 
@@ -283,6 +336,22 @@ class TestSessionCommands:
         args = NS(session_id="ses1", directory=str(tmp_path), yes=True, backup=False, force=False)
         assert cli._cmd_move(args) == 0
 
+    def test_move_with_backup_creates_archive(self, cli_env, tmp_path, monkeypatch, capsys):
+        cli_env()
+        monkeypatch.setattr(cli, "resolve_target", lambda _t: self._project(tmp_path))
+        from ocdu.move import MoveResult
+        fake = MoveResult(
+            session_id="ses1", from_directory="/old", to_directory=str(tmp_path),
+            project_id="global", path="", moved_sessions=1,
+        )
+        calls: list[str] = []
+        monkeypatch.setattr(cli, "create_backup", lambda *_a, **_k: calls.append("backup") or _fake_backup())
+        monkeypatch.setattr(cli, "move_session", lambda *_a, **_k: fake)
+        args = NS(session_id="ses1", directory=str(tmp_path), yes=True, backup=True, force=False)
+        assert cli._cmd_move(args) == 0
+        assert calls == ["backup"]
+        assert "Backup:" in capsys.readouterr().out
+
 class TestExport:
 
     def test_resolve_dest_directory(self, tmp_path):
@@ -310,3 +379,36 @@ class TestExport:
         cli_env()
         args = NS(session_id="ghost", format="md", out=None, thinking=False, no_tool_details=False, no_metadata=False)
         assert cli._cmd_export(args) == 2
+
+    def test_export_json_dispatches_to_json(self, cli_env, tmp_path, monkeypatch, capsys):
+        cli_env()
+        captured = {}
+        monkeypatch.setattr(
+            cli, "export_json",
+            lambda _cfg, sid, dest, directory: captured.update(sid=sid, dest=dest, directory=directory) or dest,
+        )
+        dest = tmp_path / "out.json"
+        args = NS(
+            session_id="ses1", format="json", out=str(dest),
+            thinking=False, no_tool_details=False, no_metadata=False,
+        )
+        assert cli._cmd_export(args) == 0
+        assert captured["sid"] == "ses1"
+        assert captured["directory"] == "/d"
+
+class TestMainErrorHandling:
+
+    def test_handler_exception_returns_one(self, cli_env, monkeypatch, capsys):
+        cli_env()
+
+        def boom(_args):
+            raise RuntimeError("kaboom")
+
+        monkeypatch.setattr(cli, "_cmd_stats", boom)
+        assert cli.main(["stats"]) == 1
+        assert "error: kaboom" in capsys.readouterr().err
+
+    def test_handler_result_is_returned(self, cli_env, monkeypatch):
+        cli_env()
+        monkeypatch.setattr(cli, "_cmd_stats", lambda _args: 0)
+        assert cli.main(["stats"]) == 0

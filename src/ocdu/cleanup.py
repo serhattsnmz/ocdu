@@ -37,9 +37,11 @@ def delete_orphan_events(config: Config) -> tuple[int, int]:
     connection = _connect_rw(config)
     try:
         cursor = connection.execute(
-            "SELECT COUNT(*), COALESCE(SUM((SELECT COALESCE(SUM(length(cast(e.data AS blob))),0) "
-            "FROM event e WHERE e.aggregate_id = es.aggregate_id)),0) "
-            "FROM event_sequence es WHERE es.aggregate_id NOT IN (SELECT id FROM session)"
+            "SELECT COUNT(DISTINCT es.aggregate_id), "
+            "COALESCE(SUM(length(cast(e.data AS blob))), 0) "
+            "FROM event_sequence es "
+            "LEFT JOIN event e ON e.aggregate_id = es.aggregate_id "
+            "WHERE es.aggregate_id NOT IN (SELECT id FROM session)"
         )
         row = cursor.fetchone()
         count = int(row[0] or 0)

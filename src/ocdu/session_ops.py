@@ -12,7 +12,14 @@ def _connect(config: Config) -> sqlite3.Connection:
     return connection
 
 def set_title(config: Config, session_id: str, title: str) -> bool:
-    """Rename a session. Returns True if the session existed."""
+    """Rename a session. Returns True if the session existed.
+
+    Raises ``ValueError`` when ``title`` is empty or only whitespace, so the
+    database never ends up with a blank session title.
+    """
+    title = title.strip()
+    if not title:
+        raise ValueError("title must not be empty")
     connection = _connect(config)
     try:
         cursor = connection.execute(

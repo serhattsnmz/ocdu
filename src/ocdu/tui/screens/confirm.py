@@ -38,7 +38,7 @@ class ChoiceScreen(ModalScreen[str | None]):
         """Compose the dialog title, message and buttons."""
         with Vertical(id="dialog"):
             yield Label(self.title_text, id="dialog-title")
-            yield Static(self.message, id="dialog-message")
+            yield Static(self.message, id="dialog-message", markup=False)
             with Horizontal(id="dialog-buttons"):
                 for label, key in self.options:
                     variant = "error" if key in ("yes", "prune", "prune_backup") else "default"

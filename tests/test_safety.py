@@ -56,6 +56,17 @@ class TestDatabaseInUse:
             holder.execute("ROLLBACK")
             holder.close()
 
+    def test_connect_error_reports_in_use(self, make_db, config_factory, monkeypatch):
+        db_path = make_db({})
+        cfg = config_factory(OPENCODE_DATA_DIR=str(db_path.parent), OPENCODE_DB_FILE=db_path.name)
+
+        def _boom(*_args, **_kwargs):
+            raise sqlite3.Error("cannot open")
+
+        monkeypatch.setattr(safety.sqlite3, "connect", _boom)
+        assert database_in_use(cfg) is True
+
+
 class TestOpencodeProcesses:
 
     def test_windows_branch(self, monkeypatch):

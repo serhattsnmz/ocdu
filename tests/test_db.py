@@ -3,7 +3,7 @@
 from __future__ import annotations
 import sqlite3
 import pytest
-from ocdu.db import Database, _database_state, _readonly_uri
+from ocdu.db import Database, _change_counter, _database_state, _readonly_uri
 from tests.factories import (
     EventFactory,
     MessageFactory,
@@ -142,6 +142,35 @@ class TestSizeByDirectory:
         with db.open() as connection:
             totals = db.size_by_directory(connection)
         assert totals == {"/d": blen("abcd")}
+
+    def test_orphan_aggregate_without_session_is_skipped(self, make_db):
+        rows = _base_rows()
+        rows["event"] = [
+            EventFactory(id="e1", aggregate_id="ses1", data="ab"),
+            EventFactory(id="e2", aggregate_id="ghost", data="zzzz"),
+        ]
+        db = Database(make_db(rows))
+        with db.open() as connection:
+            totals = db.size_by_directory(connection)
+        assert totals == {"/d": blen("ab")}
+
+class TestChangeCounter:
+
+    def test_missing_file_is_zero(self, tmp_path):
+        assert _change_counter(tmp_path / "absent.db") == 0
+
+    def test_short_header_is_zero(self, tmp_path):
+        path = tmp_path / "short.db"
+        path.write_bytes(b"tiny")
+        assert _change_counter(path) == 0
+
+    def test_reads_header_bytes(self, tmp_path):
+        path = tmp_path / "header.db"
+        payload = bytearray(28)
+        payload[24:28] = (7).to_bytes(4, "big")
+        path.write_bytes(bytes(payload))
+        assert _change_counter(path) == 7
+
 
 class TestOrphanEventBytes:
 

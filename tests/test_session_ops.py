@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import sqlite3
+import pytest
 from ocdu.session_ops import set_title
 from tests.factories import ProjectFactory, SessionFactory
 
@@ -32,3 +33,25 @@ class TestSetTitle:
     def test_missing_session_returns_false(self, make_db, config_factory):
         db_path = make_db(_rows())
         assert set_title(_config(config_factory, db_path), "ghost", "x") is False
+
+    def test_empty_title_raises(self, make_db, config_factory):
+        db_path = make_db(_rows())
+        with pytest.raises(ValueError):
+            set_title(_config(config_factory, db_path), "ses1", "")
+
+    def test_whitespace_title_raises(self, make_db, config_factory):
+        db_path = make_db(_rows())
+        with pytest.raises(ValueError):
+            set_title(_config(config_factory, db_path), "ses1", "   ")
+
+    def test_title_is_stripped(self, make_db, config_factory):
+        db_path = make_db(_rows())
+        assert set_title(_config(config_factory, db_path), "ses1", "  New title  ") is True
+        connection = sqlite3.connect(db_path)
+        try:
+            title = connection.execute(
+                "SELECT title FROM session WHERE id = 'ses1'"
+            ).fetchone()[0]
+        finally:
+            connection.close()
+        assert title == "New title"

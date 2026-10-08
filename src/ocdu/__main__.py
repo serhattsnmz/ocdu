@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import ctypes
+import sqlite3
 import sys
 import time
 from pathlib import Path
@@ -466,7 +467,11 @@ def main(argv: list[str] | None = None) -> int:
         "clean-logs": _cmd_clean_logs,
         "export": _cmd_export,
     }
-    result = handlers[command](args)
+    try:
+        result = handlers[command](args)
+    except (sqlite3.Error, OSError, RuntimeError, ValueError) as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
     if command not in ("footprint", "backup", "build-dir"):
         print(f"\n({time.perf_counter() - started:.2f}s)")
     return result

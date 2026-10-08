@@ -3,13 +3,16 @@
 from __future__ import annotations
 import hashlib
 import sqlite3
+import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 import pytest
 import ocdu.move as move_module
 from ocdu.db import Database
 from ocdu.move import (
     _cached_id,
     _normalize_remote,
+    _run_git,
     _sha1,
     compute_path,
     descendants,
@@ -18,6 +21,30 @@ from ocdu.move import (
     TargetProject,
 )
 from tests.factories import ProjectFactory, SessionFactory
+
+class TestRunGit:
+
+    def test_success_returns_stripped_stdout(self, monkeypatch):
+        monkeypatch.setattr(
+            subprocess, "run",
+            lambda *a, **k: SimpleNamespace(returncode=0, stdout="/repo\n", stderr=""),
+        )
+        assert _run_git(Path("."), ["rev-parse", "--show-toplevel"]) == "/repo"
+
+    def test_nonzero_returncode_returns_none(self, monkeypatch):
+        monkeypatch.setattr(
+            subprocess, "run",
+            lambda *a, **k: SimpleNamespace(returncode=1, stdout="", stderr="fatal"),
+        )
+        assert _run_git(Path("."), ["status"]) is None
+
+    def test_oserror_returns_none(self, monkeypatch):
+        def _boom(*_a, **_k):
+            raise OSError("git missing")
+
+        monkeypatch.setattr(subprocess, "run", _boom)
+        assert _run_git(Path("."), ["status"]) is None
+
 
 class TestSha1:
 
@@ -62,6 +89,9 @@ class TestNormalizeRemote:
 
     def test_empty_path_returns_none(self):
         assert _normalize_remote("https://host/") is None
+
+    def test_non_remote_string_returns_none(self):
+        assert _normalize_remote("just-a-name") is None
 
 class TestCachedId:
 

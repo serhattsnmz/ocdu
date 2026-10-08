@@ -114,6 +114,19 @@ class TestFormatMessage:
         message = {"info": {"role": "assistant", "agent": "build"}, "parts": []}
         assert _format_message(message, TranscriptOptions(assistant_metadata=False)) == "## Assistant\n\n"
 
+    def test_assistant_nested_model_object(self):
+        message = {
+            "info": {
+                "role": "assistant",
+                "agent": "build",
+                "model": {"modelID": "gpt", "providerID": "openai"},
+            },
+            "parts": [],
+        }
+        out = _format_message(message, TranscriptOptions(assistant_metadata=True))
+        assert "openai/gpt" in out
+
+
 class TestToMarkdown:
 
     def test_basic_structure(self):
@@ -126,6 +139,24 @@ class TestToMarkdown:
         assert out.startswith("# T")
         assert "**Session ID:** s1" in out
         assert out.index("## User\n\na") < out.index("## User\n\nb")
+
+    def test_invalid_timestamps_do_not_crash(self):
+        session = {"title": "T", "id": "s1", "time_created": -1, "time_updated": 10**18}
+        out = to_markdown(session, [], TranscriptOptions())
+        assert out.startswith("# T")
+        assert "**Created:**" in out
+
+    def test_none_message_time_sorts_first(self):
+        session = {"title": "T", "id": "s1", "time_created": 0, "time_updated": 0}
+        messages = [
+            {"info": {"role": "user", "id": "b", "time": {"created": None}},
+             "parts": [{"type": "text", "text": "b"}]},
+            {"info": {"role": "user", "id": "a", "time": {"created": 100}},
+             "parts": [{"type": "text", "text": "a"}]},
+        ]
+        out = to_markdown(session, messages, TranscriptOptions())
+        assert out.count("## User") == 2
+        assert out.index("## User\n\nb") < out.index("## User\n\na")
 
 class TestExportMarkdown:
 

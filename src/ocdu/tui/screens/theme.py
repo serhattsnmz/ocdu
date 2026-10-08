@@ -40,6 +40,7 @@ class ThemePickerScreen(ModalScreen[str | None]):
     def on_mount(self) -> None:
         """Populate the theme list and highlight the active theme."""
         self._original = self.app.theme
+        self.app.set_theme_persistence(False)
         option_list = self.query_one("#theme-list", OptionList)
         names = sorted(
             name for name in self.app.available_themes if not name.startswith("ansi")
@@ -59,13 +60,17 @@ class ThemePickerScreen(ModalScreen[str | None]):
         """Apply, persist and dismiss with the selected theme."""
         if event.option.id:
             self.app.theme = event.option.id
+            self.app.set_theme_persistence(True)
             save_ui_overrides({"THEME": event.option.id})
+        else:
+            self.app.set_theme_persistence(True)
         self.dismiss(event.option.id)
 
     def action_cancel(self) -> None:
         """Restore the original theme and dismiss without a choice."""
         if self._original:
             self.app.theme = self._original
+        self.app.set_theme_persistence(True)
         self.dismiss(None)
 
     def action_copy_or_cancel(self) -> None:

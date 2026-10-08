@@ -72,10 +72,23 @@ def _format_message(message: dict, options: TranscriptOptions) -> str:
         result += _format_part(part, options)
     return result
 
+def _safe_datetime(epoch_ms: object) -> datetime:
+    """Convert a millisecond epoch to a datetime, falling back to the epoch."""
+    try:
+        return datetime.fromtimestamp(float(epoch_ms or 0) / 1000)
+    except (OverflowError, OSError, ValueError, TypeError):
+        return datetime.fromtimestamp(0)
+
+def _message_sort_key(message: dict) -> tuple[float, str]:
+    """Return a comparison-safe sort key for a message dict."""
+    created = (message["info"].get("time") or {}).get("created")
+    timestamp = created if isinstance(created, (int, float)) else 0
+    return timestamp, str(message["info"].get("id", ""))
+
 def to_markdown(session: dict, messages: list[dict], options: TranscriptOptions) -> str:
     """Render a session as a Markdown transcript."""
-    created = datetime.fromtimestamp((session.get("time_created") or 0) / 1000)
-    updated = datetime.fromtimestamp((session.get("time_updated") or 0) / 1000)
+    created = _safe_datetime(session.get("time_created"))
+    updated = _safe_datetime(session.get("time_updated"))
     lines = [
         f"# {session.get('title', '')}",
         "",
@@ -86,13 +99,7 @@ def to_markdown(session: dict, messages: list[dict], options: TranscriptOptions)
         "---",
         "",
     ]
-    ordered = sorted(
-        messages,
-        key=lambda m: (
-            (m["info"].get("time") or {}).get("created", 0),
-            m["info"].get("id", ""),
-        ),
-    )
+    ordered = sorted(messages, key=_message_sort_key)
     for message in ordered:
         lines.append(_format_message(message, options))
         lines.append("---\n")

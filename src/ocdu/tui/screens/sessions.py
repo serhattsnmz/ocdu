@@ -321,7 +321,7 @@ class SessionsScreen(OcduScreen):
             first = failed[0]
             self.app.notify(
                 f"Deleted {len(ok)} session(s), {len(failed)} failed "
-                f"(e.g. {first[0].title}: {first[2].strip()[:120]})",
+                f"(e.g. {escape(first[0].title)}: {escape(first[2].strip()[:120])})",
                 severity="error",
                 timeout=12,
             )
@@ -344,10 +344,10 @@ class SessionsScreen(OcduScreen):
     def _after_delete(self, result: CliResult, session: SessionSize) -> None:
         """Report the delete result and reload the list."""
         if not result.ok:
-            self.app.notify(f"Delete failed: {result.stderr.strip()}", severity="error", timeout=10)
+            self.app.notify(f"Delete failed: {escape(result.stderr.strip())}", severity="error", timeout=10)
             self._restore_row = None
             return
-        self.app.notify(f"Deleted: {session.title}", timeout=8)
+        self.app.notify(f"Deleted: {escape(session.title)}", timeout=8)
         self.reload()
 
     # -- move ----------------------------------------------------------------
@@ -395,7 +395,7 @@ class SessionsScreen(OcduScreen):
     def _after_move(self, result: MoveResult) -> None:
         """Report the move result and reload the list."""
         self.app.notify(
-            f"Moved {result.moved_sessions} session(s) to {result.to_directory}", timeout=10
+            f"Moved {result.moved_sessions} session(s) to {escape(str(result.to_directory))}", timeout=10
         )
         self.reload()
 
@@ -412,10 +412,11 @@ class SessionsScreen(OcduScreen):
 
     def _on_rename(self, value: str | None, session: SessionSize) -> None:
         """Rename the session to the entered title."""
-        if not value:
+        title = (value or "").strip()
+        if not title:
             return
         self.run_blocking(
-            lambda: set_title(config, session.session_id, value.strip()),
+            lambda: set_title(config, session.session_id, title),
             lambda _ok: self.reload(),
         )
 
@@ -463,4 +464,4 @@ class SessionsScreen(OcduScreen):
 
     def _notify_export(self, path: Path) -> None:
         """Report the exported file path."""
-        self.app.notify(f"Exported: {path}", timeout=8)
+        self.app.notify(f"Exported: {escape(str(path))}", timeout=8)

@@ -126,6 +126,12 @@ class TestPaths:
         path = _write(tmp_path / "cfg.json", {"OPENCODE_DATA_DIR": "/data"})
         assert load_config(path).db_path == Path("/data/opencode.db")
 
+    def test_export_and_screenshot_dirs_follow_data_dir(self, tmp_path):
+        path = _write(tmp_path / "cfg.json", {"OPENCODE_DATA_DIR": "/data"})
+        cfg = load_config(path)
+        assert cfg.export_dir == Path("/data/exports")
+        assert cfg.screenshot_dir == Path("/data/screenshots")
+
 class TestRawReaders:
 
     def test_read_raw_config_non_dict(self, tmp_path):

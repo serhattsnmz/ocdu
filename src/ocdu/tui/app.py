@@ -6,6 +6,7 @@ from textual.app import App, Screen, SystemCommand
 from textual.binding import Binding
 from textual.command import DiscoveryHit, Hits
 from textual.system_commands import SystemCommandsProvider
+from rich.markup import escape
 from ..config import config, save_ui_overrides
 from .screens.browse import BrowseScreen
 from .screens.dashboard import DashboardScreen
@@ -184,6 +185,7 @@ class OcduApp(App):
         Binding("ctrl+c", "quit", "Copy / Quit", show=True),
         Binding("alt+left", "navigate_back", "Back", show=False),
     ]
+    _persist_theme_enabled = True
 
     def get_default_screen(self) -> Screen:
         """Return the initial browse screen."""
@@ -197,10 +199,25 @@ class OcduApp(App):
         self.theme_changed_signal.subscribe(self, self._persist_theme)
 
     def _persist_theme(self, theme) -> None:
-        """Persist the name of the newly selected theme."""
+        """Persist the name of the newly selected theme (unless suppressed).
+
+        The active theme picker suppresses persistence so previewing with the
+        cursor never writes the config file; the picker saves explicitly on
+        selection instead.
+        """
+        if isinstance(self.screen, ThemePickerScreen) or not self._persist_theme_enabled:
+            return
         name = getattr(theme, "name", "")
         if name:
             save_ui_overrides({"THEME": name})
+
+    def set_theme_persistence(self, enabled: bool) -> None:
+        """Enable or disable persisting theme changes.
+
+        The theme picker disables this while previewing so moving the cursor does
+        not write the config file; it re-enables it before applying a choice.
+        """
+        self._persist_theme_enabled = enabled
 
     # -- back navigation -----------------------------------------------------
     def action_navigate_back(self) -> None:
@@ -295,9 +312,9 @@ class OcduApp(App):
             directory.mkdir(parents=True, exist_ok=True)
             path = self.save_screenshot(path=str(directory))
         except OSError as error:
-            self.notify(f"Screenshot failed: {error}", severity="error", timeout=10)
+            self.notify(f"Screenshot failed: {escape(str(error))}", severity="error", timeout=10)
             return
-        self.notify(f"Screenshot saved: {path}", timeout=8)
+        self.notify(f"Screenshot saved: {escape(str(path))}", timeout=8)
 
     # -- stats screens -------------------------------------------------------
     def action_show_token_stats(self) -> None:

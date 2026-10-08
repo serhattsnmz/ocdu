@@ -191,3 +191,14 @@ class TestCleanLogs:
         count, _freed = clean_logs(cfg, -5)
         assert count == 2
         assert not fresh.exists()
+
+    def test_unlink_error_is_skipped(self, config_factory, tmp_path, monkeypatch):
+        cfg, old, _fresh = self._setup(config_factory, tmp_path, LOG_RETENTION_DAYS="5")
+
+        def _failing_unlink(self, *args, **kwargs):
+            raise OSError("locked")
+
+        monkeypatch.setattr(Path, "unlink", _failing_unlink)
+        assert clean_logs(cfg, 0) == (0, 0)
+        assert old.exists()
+

@@ -8,6 +8,7 @@ from textual.actions import SkipAction
 from textual.binding import Binding
 from textual.screen import Screen
 from textual.widgets import Static
+from rich.markup import escape
 from ...backup import create_backup
 from ...cleanup import checkpoint, clean_logs, prune, vacuum
 from ...config import config
@@ -117,7 +118,7 @@ class OcduScreen(Screen):
         def fail(error: Exception) -> None:
             """Close the overlay and report the failure."""
             close_overlay()
-            self.app.notify(f"Operation failed: {error}", severity="error", timeout=10)
+            self.app.notify(f"Operation failed: {escape(str(error))}", severity="error", timeout=10)
 
         def job() -> None:
             """Run the work function and marshal its outcome to the UI thread."""
@@ -154,7 +155,7 @@ class OcduScreen(Screen):
     def _notify_backup(self, result: BackupResult) -> None:
         """Report the created backup and reload the screen."""
         self.app.notify(
-            f"Backup created: {result.path.name} ({human_size(result.total_bytes)})", timeout=8
+            f"Backup created: {escape(result.path.name)} ({human_size(result.total_bytes)})", timeout=8
         )
         self.reload()
 

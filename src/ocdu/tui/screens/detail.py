@@ -187,9 +187,9 @@ class DetailScreen(OcduScreen):
     def _after_delete(self, result: CliResult) -> None:
         """Report the delete result and return to the previous screen."""
         if not result.ok:
-            self.app.notify(f"Delete failed: {result.stderr.strip()}", severity="error", timeout=10)
+            self.app.notify(f"Delete failed: {escape(result.stderr.strip())}", severity="error", timeout=10)
             return
-        self.app.notify(f"Deleted: {self.session.title}", timeout=8)
+        self.app.notify(f"Deleted: {escape(self.session.title)}", timeout=8)
         self.app.pop_screen()
         target = self.app.screen
         reload = getattr(target, "reload", None)
@@ -235,7 +235,7 @@ class DetailScreen(OcduScreen):
 
     def _notify_export(self, path: Path) -> None:
         """Report the exported file path."""
-        self.app.notify(f"Exported: {path}", timeout=8)
+        self.app.notify(f"Exported: {escape(str(path))}", timeout=8)
 
     # -- move / rename -------------------------------------------------------
     def action_move_session(self) -> None:
@@ -281,7 +281,7 @@ class DetailScreen(OcduScreen):
     def _after_move(self, result: MoveResult) -> None:
         """Report the move result and return to the previous screen."""
         self.app.notify(
-            f"Moved {result.moved_sessions} session(s) to {result.to_directory}", timeout=10
+            f"Moved {result.moved_sessions} session(s) to {escape(str(result.to_directory))}", timeout=10
         )
         self.app.pop_screen()
         target = self.app.screen
@@ -298,11 +298,12 @@ class DetailScreen(OcduScreen):
 
     def _on_rename(self, value: str | None) -> None:
         """Rename the session to the entered title."""
-        if not value:
+        title = (value or "").strip()
+        if not title:
             return
         session = self.session
         self.run_blocking(
-            lambda: set_title(config, session.session_id, value.strip()),
+            lambda: set_title(config, session.session_id, title),
             self._after_rename,
         )
 

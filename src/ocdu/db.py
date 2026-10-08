@@ -73,7 +73,7 @@ class Database:
         return self.db_path.is_file()
 
     # -- pragmas -------------------------------------------------------------
-    def pragma(self, connection: sqlite3.Connection, name: str):
+    def pragma(self, connection: sqlite3.Connection, name: str) -> int | str | None:
         """Return the first column of a ``PRAGMA`` result."""
         row = connection.execute(f"PRAGMA {name}").fetchone()
         return row[0] if row else None

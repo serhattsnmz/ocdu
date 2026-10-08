@@ -88,6 +88,17 @@ class TestDirSize:
             pytest.skip("symlinks not supported on this platform")
         assert dir_size(root) == (1, 1)
 
+    def test_stat_error_returns_zero(self, tmp_path, monkeypatch):
+        target = tmp_path / "a.bin"
+        target.write_bytes(b"x" * 4)
+
+        def _boom(_self):
+            raise OSError("denied")
+
+        monkeypatch.setattr(Path, "is_file", _boom)
+        assert dir_size(target) == (0, 0)
+
+
 class TestFileSize:
 
     def test_existing_file(self, tmp_path):

@@ -48,4 +48,4 @@ class LoadingOverlay(Container):
         """Yield the spinner and its message."""
         with Horizontal(id="loading-box"):
             yield LoadingIndicator()
-            yield Static(self.message, id="loading-message")
+            yield Static(self.message, id="loading-message", markup=False)

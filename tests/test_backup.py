@@ -5,6 +5,9 @@ import os
 import sqlite3
 import time
 import zipfile
+from pathlib import Path
+import pytest
+import ocdu.backup as backup_module
 from ocdu.backup import (
     _snapshot_database,
     backup_dir_size,
@@ -83,6 +86,20 @@ class TestCreateBackup:
         create_backup(cfg)
         assert len(list_backups(cfg)) == 2
 
+    def test_archive_failure_leaves_no_partial_file(self, make_db, config_factory, monkeypatch):
+        db_path = make_db(_rows())
+        cfg = _config(config_factory, db_path)
+
+        class _BoomZip:
+            def __init__(self, *_a, **_k):
+                raise OSError("disk full")
+
+        monkeypatch.setattr(backup_module.zipfile, "ZipFile", _BoomZip)
+        with pytest.raises(OSError):
+            create_backup(cfg)
+        assert list(cfg.backup_dir.glob("*.part")) == []
+        assert list_backups(cfg) == []
+
 class TestListAndRotate:
 
     def test_list_missing_dir(self, config_factory, tmp_path):
@@ -117,3 +134,27 @@ class TestListAndRotate:
         (backup_dir / "ocdu-backup-a.zip").write_bytes(b"x" * 7)
         cfg = config_factory(BACKUP_DIR=str(backup_dir))
         assert backup_dir_size(cfg) == 7
+
+    def test_rotate_tolerates_unlink_failure(self, config_factory, tmp_path, monkeypatch):
+        backup_dir = tmp_path / "backups"
+        backup_dir.mkdir()
+        base = time.time() - 1000
+        paths = []
+        for index in range(3):
+            path = backup_dir / f"ocdu-backup-2024010{index}-000000.zip"
+            path.write_bytes(b"x")
+            os.utime(path, (base + index, base + index))
+            paths.append(path)
+        cfg = config_factory(BACKUP_DIR=str(backup_dir), BACKUP_KEEP="1")
+        original_unlink = Path.unlink
+
+        def _failing_unlink(self, *args, **kwargs):
+            if self.name == paths[0].name:
+                raise OSError("locked")
+            return original_unlink(self, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "unlink", _failing_unlink)
+        removed = rotate_backups(cfg)
+        assert paths[0].name not in [p.name for p in removed]
+        assert paths[0].exists()
+

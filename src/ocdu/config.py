@@ -8,6 +8,7 @@ expanded to the user home directory.
 """
 
 from __future__ import annotations
+import contextlib
 import json
 import os
 import re
@@ -179,13 +180,23 @@ def load_config(config_file: Path = CONFIG_FILE) -> Config:
     return Config(merged)
 
 def save_ui_overrides(updates: dict[str, str], config_file: Path = CONFIG_FILE) -> Path:
-    """Merge ``updates`` into the JSON config file and return its path."""
+    """Merge ``updates`` into the JSON config file and return its path.
+
+    The file is written atomically (temp file + ``os.replace``) so a crash mid
+    write cannot leave a truncated JSON that would reset every user override.
+    """
     data = _read_raw_config(config_file)
     data.update(updates)
     config_file.parent.mkdir(parents=True, exist_ok=True)
-    config_file.write_text(
-        json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
+    payload = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+    temp_file = config_file.with_name(config_file.name + ".part")
+    try:
+        temp_file.write_text(payload, encoding="utf-8")
+        os.replace(temp_file, config_file)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            temp_file.unlink()
+        raise
     return config_file
 
 config = load_config()
