@@ -16,7 +16,9 @@ from ...export import TranscriptOptions, export_json, export_markdown, safe_file
 from ...model import MessageTurn, SessionSize
 from ...move import MoveResult, move_session
 from ...opencode import CliResult, delete_session
+from ...safety import opencode_processes
 from ...session_ops import set_title
+from ...state import pinned_session_ids, toggle_pinned
 from ...util import format_time, human_size, single_line
 from ..format import shorten_home, size_markup
 from ..listview import ClickSelectItem, ClickSelectListView
@@ -32,6 +34,7 @@ class DetailScreen(OcduScreen):
         Binding("d", "delete_session", "Delete"),
         Binding("m", "move_session", "Move"),
         Binding("n", "rename_session", "Rename"),
+        Binding("f", "toggle_pin", "Pin"),
         Binding("e", "export_markdown", "Export MD"),
         Binding("j", "export_json", "Export JSON"),
         Binding("o", "toggle_message_sort", "Sort msgs"),
@@ -44,6 +47,7 @@ class DetailScreen(OcduScreen):
         self._turns: list[MessageTurn] = []
         self._ordered: list[MessageTurn] = []
         self._msg_desc = True
+        self._pinned = session.session_id in pinned_session_ids(config)
 
     def compose(self) -> ComposeResult:
         """Compose the header, size breakdown and message list."""
@@ -134,11 +138,31 @@ class DetailScreen(OcduScreen):
         self._msg_desc = not self._msg_desc
         self._populate_messages()
 
+    def action_toggle_pin(self) -> None:
+        """Toggle the pinned state of this session."""
+        session_id = self.session.session_id
+        try:
+            self._pinned = toggle_pinned(config, session_id)
+        except OSError as error:
+            self.app.notify(f"Pin update failed: {escape(str(error))}", severity="error", timeout=10)
+            return
+        self.query_one("#detail", Static).update(self._build_text())
+        self.run_blocking(opencode_processes, self._warn_if_running)
+
+    def _warn_if_running(self, processes: list[str]) -> None:
+        """Warn that a live OpenCode instance may overwrite the pin change."""
+        if processes:
+            self.app.notify(
+                "OpenCode appears to be running; it may overwrite this change.",
+                severity="warning",
+                timeout=10,
+            )
+
     def _build_text(self) -> str:
         """Render the session metadata and size breakdown as text."""
         s = self.session
         rows = [
-            ("Title", escape(s.title)),
+            ("Title", escape(f"★ {s.title}" if self._pinned else s.title)),
             ("Session ID", escape(s.session_id)),
             ("Directory", escape(shorten_home(s.directory))),
             ("Root session", "yes" if s.is_root else "no"),

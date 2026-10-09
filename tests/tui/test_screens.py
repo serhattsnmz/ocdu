@@ -19,6 +19,7 @@ from ocdu.model import (
 from ocdu.move import MoveResult
 from ocdu.opencode import CliResult
 from ocdu.safety import SafetyStatus
+from ocdu.state import pinned_session_ids
 from ocdu.tui.app import OcduApp
 import ocdu.tui.app as tui_app
 import ocdu.tui.screens.base as base_module
@@ -166,6 +167,29 @@ class TestSessionsAndDetail:
 
         run_tui(scenario)
 
+    def test_detail_toggle_pin_shows_star(self, run_tui, tui_env):
+        cfg, _ = tui_env()
+
+        async def scenario():
+            app = OcduApp()
+            async with app.run_test() as pilot:
+                app.push_screen(DetailScreen(_session_size()))
+                await settle(app, pilot)
+                detail = app.screen
+                assert "★" not in detail._build_text()
+                detail.action_toggle_pin()
+                await settle(app, pilot)
+                assert detail._pinned is True
+                assert "★" in detail._build_text()
+                assert pinned_session_ids(cfg) == {"ses1"}
+                detail.action_toggle_pin()
+                await settle(app, pilot)
+                assert detail._pinned is False
+                assert "★" not in detail._build_text()
+                assert pinned_session_ids(cfg) == set()
+
+        run_tui(scenario)
+
     def test_reply_screen(self, run_tui):
         async def scenario():
             app = OcduApp()
@@ -285,6 +309,27 @@ class TestSessionsScreenActions:
                 assert screen._marked == {"ses1"}
                 screen.action_toggle_mark()
                 assert screen._marked == set()
+
+        run_tui(scenario)
+
+    def test_toggle_pin_updates_state_and_star(self, run_tui, tui_env):
+        cfg, _ = tui_env()
+
+        async def scenario():
+            app = OcduApp()
+            async with app.run_test() as pilot:
+                screen = await _open_sessions(app, pilot)
+                assert screen._star("ses1").plain == " "
+                screen.action_toggle_pin()
+                await settle(app, pilot)
+                assert screen._pinned == {"ses1"}
+                assert screen._star("ses1").plain == "★"
+                assert pinned_session_ids(cfg) == {"ses1"}
+                screen.action_toggle_pin()
+                await settle(app, pilot)
+                assert screen._pinned == set()
+                assert screen._star("ses1").plain == " "
+                assert pinned_session_ids(cfg) == set()
 
         run_tui(scenario)
 

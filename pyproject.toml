@@ -44,16 +44,16 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/ocdu"]
 
+[tool.uv]
+cache-keys = [{ file = "pyproject.toml" }, { file = "src/**/*.py" }]
+
 [tool.ruff]
 line-length = 120
 target-version = "py311"
 extend-exclude = ["build", "dist"]
 
 [tool.ruff.lint]
-# Project rules: no blank lines between import groups and at most one blank
-# line between blocks, so the isort rule (I) is intentionally left out.
 select = ["E", "F", "W", "B", "C4", "SIM", "UP", "D1"]
 
 [tool.ruff.lint.per-file-ignores]
-# Tests deliberately use short, self-descriptive names without docstrings.
 "tests/**" = ["D1"]

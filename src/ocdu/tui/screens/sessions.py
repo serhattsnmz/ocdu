@@ -16,8 +16,9 @@ from ...export import TranscriptOptions, export_json, export_markdown, safe_file
 from ...model import DirectorySummary, SessionSize
 from ...move import MoveResult, move_session
 from ...opencode import CliResult, delete_session
+from ...safety import opencode_processes
 from ...session_ops import set_title
-from ...state import pinned_session_ids
+from ...state import pinned_session_ids, toggle_pinned
 from ...util import format_time, human_size, strip_control
 from ..format import (
     COST_WIDTH,
@@ -51,6 +52,7 @@ class SessionsScreen(OcduScreen):
         Binding("y", "copy_row", "Copy row"),
         Binding("d", "delete_selected", "Delete"),
         Binding("space", "toggle_mark", "Mark"),
+        Binding("f", "toggle_pin", "Pin"),
         Binding("m", "move_selected", "Move"),
         Binding("n", "rename_selected", "Rename"),
         Binding("slash", "filter", "Filter"),
@@ -71,6 +73,7 @@ class SessionsScreen(OcduScreen):
         self._pinned: set[str] = set()
         self._restore_row: int | None = None
         self._mark_column: object | None = None
+        self._star_column: object | None = None
 
     def compose(self) -> ComposeResult:
         """Compose the header, summary and session table."""
@@ -96,6 +99,7 @@ class SessionsScreen(OcduScreen):
             "Title",
         )
         self._mark_column = keys[0]
+        self._star_column = keys[5]
         self.reload()
 
     def reload(self) -> None:
@@ -239,6 +243,36 @@ class SessionsScreen(OcduScreen):
         if self._mark_column is not None:
             table.update_cell(session_id, self._mark_column, self._marker(marked))
         self._render_summary()
+
+    # -- pin (favourite) -----------------------------------------------------
+    def action_toggle_pin(self) -> None:
+        """Toggle the pinned state of the selected session."""
+        session = self._selected()
+        if session is None:
+            return
+        session_id = session.session_id
+        try:
+            pinned = toggle_pinned(config, session_id)
+        except OSError as error:
+            self.app.notify(f"Pin update failed: {escape(str(error))}", severity="error", timeout=10)
+            return
+        if pinned:
+            self._pinned.add(session_id)
+        else:
+            self._pinned.discard(session_id)
+        table = self.query_one("#sessions", DataTable)
+        if self._star_column is not None:
+            table.update_cell(session_id, self._star_column, self._star(session_id))
+        self.run_blocking(opencode_processes, self._warn_if_running)
+
+    def _warn_if_running(self, processes: list[str]) -> None:
+        """Warn that a live OpenCode instance may overwrite the pin change."""
+        if processes:
+            self.app.notify(
+                "OpenCode appears to be running; it may overwrite this change.",
+                severity="warning",
+                timeout=10,
+            )
 
     # -- delete --------------------------------------------------------------
     def action_delete_selected(self) -> None:

@@ -6,6 +6,8 @@ import pytest
 import ocdu.tui.app as tui_app
 import ocdu.tui.screens.base as tui_base
 import ocdu.tui.screens.browse as tui_browse
+import ocdu.tui.screens.detail as tui_detail
+import ocdu.tui.screens.sessions as tui_sessions
 import ocdu.tui.screens.theme as tui_theme
 from ocdu.safety import SafetyStatus
 from tests.factories import EventFactory, MessageFactory, PartFactory, ProjectFactory, SessionFactory
@@ -23,6 +25,8 @@ def _isolate_tui(monkeypatch):
     monkeypatch.setattr(tui_base, "probe", _safe_probe)
     monkeypatch.setattr(tui_app, "save_ui_overrides", _noop_save)
     monkeypatch.setattr(tui_theme, "save_ui_overrides", _noop_save)
+    monkeypatch.setattr(tui_sessions, "opencode_processes", lambda: [])
+    monkeypatch.setattr(tui_detail, "opencode_processes", lambda: [])
 
 @pytest.fixture
 def run_tui():

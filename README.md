@@ -5,7 +5,8 @@ your machine: sessions, messages, events, snapshots, logs and more.
 
 ocdu never deletes anything on its own. Inspection is read-only, deletion is
 delegated to the official `opencode` CLI, and every destructive command is a
-dry-run unless you pass `--yes`.
+dry-run unless you pass `--yes`. The only write ocdu performs itself is toggling
+a session's favourite flag in OpenCode's TUI state file (the `f` key).
 
 ## What it inspects
 
@@ -93,6 +94,7 @@ uv run ocdu export <sessionID> -o out.md [--thinking] [--no-tool-details] [--no-
 | `d` | browse | Delete every session in the selected directory |
 | `d` | sessions / detail | Delete the selected session (CLI, with confirmation) |
 | `space` | sessions | Mark/unmark a session for bulk deletion |
+| `f` | sessions / detail | Pin/unpin the session as a favourite |
 | `m` | sessions / detail | Move the session (and children) to another directory |
 | `n` | sessions / detail | Rename the session title |
 | `/` | sessions | Filter by title |
@@ -198,6 +200,11 @@ OpenCode's own config data is read from, not where `ocdu-ui.json` lives.
   way OpenCode does it: git remote hash → `.git/opencode` cache → root commit →
   `global`. Cross-project moves may break `revert` history, so a backup is
   offered.
+- **Pin** toggles the session's favourite flag in OpenCode's TUI state file
+  (`<state>/session.json`). ocdu rewrites only the `pinned` list, preserves any
+  other keys, and writes atomically. The Sessions list shows a ★ column; Detail
+  shows a star next to the title. If OpenCode is running it may overwrite the
+  change, so ocdu warns.
 
 ## Size semantics
 

@@ -33,7 +33,7 @@ core, a CLI, and a Textual TUI.
 | `move.py` | Recompute `directory`/`path`/`project_id`, resolve target project | `db`, `config` |
 | `session_ops.py` | Rename a session title | `db` |
 | `stats.py` | Token and cost statistics | `db` |
-| `state.py` | Read pinned (favourite) session ids from OpenCode TUI state | stdlib only |
+| `state.py` | Read/write pinned (favourite) session ids in OpenCode TUI state | stdlib only |
 | `__main__.py` | CLI argument parser and command dispatch | all of the above |
 | `tui/` | Textual application and screens | core modules |
 
@@ -103,6 +103,11 @@ A session's size is the sum of `event` + `message` + `part` + `session_message`
 - **Backups before risk.** Backup uses the SQLite online backup API (WAL-safe),
   VACUUMs the snapshot, writes the archive atomically (`.part` + `os.replace`)
   and keeps only the newest `BACKUP_KEEP` archives.
+- **The only self-write is the pin flag.** Toggling a favourite (`f` in the TUI)
+  edits OpenCode's TUI state file (`<state>/session.json`): ocdu updates only the
+  `pinned` list, preserves any other keys, and writes atomically. The database is
+  never touched. A live OpenCode instance holds that file in memory and rewrites
+  it on its own changes, so the TUI warns when one appears to be running.
 
 ## Configuration
 
